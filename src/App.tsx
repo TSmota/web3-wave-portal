@@ -160,6 +160,10 @@ export default function App() {
                     I am Thiago Mota and this is my first web3 project.
                 </div>
 
+                {!currentAccount && <div className="paragraph">
+                    Connect your Rinkeby Ethereum wallet to send me a wave!
+                </div>}
+
                 {isWaitingForTxn && <div className="paragraph">
                     <p>Sending a wave...</p>
                     <div>
@@ -175,12 +179,12 @@ export default function App() {
                     </div>
                 </div>}
 
-                {!isWaitingForTxn &&
+                {!isWaitingForTxn && currentAccount &&
                     <textarea className={"messageInput"}
                               onChange={e => setInputMessage(e.currentTarget.value)}
                               maxLength={maxMessageLength}/>}
 
-                {!isWaitingForTxn &&
+                {!isWaitingForTxn && currentAccount &&
                     <button className="waveButton" onClick={wave}>
                         Wave at Me
                     </button>}
