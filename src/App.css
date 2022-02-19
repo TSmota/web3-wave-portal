@@ -26,10 +26,55 @@
 .waveButton {
     cursor: pointer;
     margin-top: 16px;
+    margin-bottom: 24px;
     padding: 8px;
     border: 0;
     border-radius: 5px;
     background-color: #95a7b5;
     color: #192b73;
     font-size: 1rem;
+}
+
+.wave {
+    background-color: #741dcc;
+    color: #f9f2c5;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 12px 0;
+    width: 400px;
+}
+
+.waveHeader {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, .2);
+}
+
+.messageInput {
+    margin-top: 16px;
+    border-radius: 8px;
+    background-color: #dfdde4;
+    color: #1217aa;
+    resize: none;
+    height: 150px;
+    font-family: inherit;
+    padding: 4px 8px;
+    font-size: .9rem;
+}
+
+.messageInput::-webkit-scrollbar {
+    width: 4px;
+
+}
+
+.messageInput::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.messageInput::-webkit-scrollbar-thumb {
+    border-radius: 100px;
+    background: #8070D4;
+    border: 6px solid rgba(0, 0, 0, 0.2);
 }

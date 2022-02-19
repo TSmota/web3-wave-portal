@@ -1,5 +1,10 @@
 /// <reference types="react-scripts" />
-import { ProviderMessage, ProviderRpcError, ProviderConnectInfo, RequestArguments } from 'hardhat/types';
+import {ProviderConnectInfo, ProviderMessage, ProviderRpcError, RequestArguments} from 'hardhat/types';
+
+declare module "*.svg" {
+    const content: any;
+    export default content;
+}
 
 export interface EthereumEvent {
     connect: ProviderConnectInfo;
@@ -21,7 +26,9 @@ export interface Ethereumish {
     selectedAddress: any;
 
     on<K extends EventKeys>(event: K, eventHandler: EventHandler<K>): void;
+
     enable(): Promise<any>;
+
     request?: (request: { method: string, params?: Array<any> }) => Promise<any>
     /**
      * @deprecated
