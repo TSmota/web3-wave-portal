@@ -78,3 +78,8 @@
     background: #8070D4;
     border: 6px solid rgba(0, 0, 0, 0.2);
 }
+
+.errorMessage {
+    color: #fd4845;
+    margin: 16px 0 0;
+}

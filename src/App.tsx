@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useState} from "react";
 import './App.css';
 import {BigNumber, ethers} from "ethers";
 import abi from "./utils/WavePortal.json"
+import {Ethereumish} from "./react-app-env";
 
 interface Wave {
     waver: string;
@@ -19,16 +20,22 @@ export default function App() {
     const [contractABI] = useState(abi.abi);
     const [currentAccount, setCurrentAccount] = useState("");
     const [inputMessage, setInputMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
     const [allWaves, setAllWaves] = useState<ParsedWave[]>([]);
     const [isWaitingForTxn, setIsWaitingForTxn] = useState(false);
-    const [wavePortalContract, setWavePortalContract] = useState<ethers.Contract | null>(null);
     const maxMessageLength = 280;
+
+    const getContract = useCallback((ethereum: Ethereumish) => {
+        const provider = new ethers.providers.Web3Provider(ethereum)
+        const signer = provider.getSigner()
+        return new ethers.Contract(contractAddress, contractABI, signer)
+    }, [contractABI])
 
     const switchNetwork = async () => {
         const {ethereum} = window;
 
         if (!ethereum || !ethereum.request) {
-            return
+            return false
         }
 
         try {
@@ -36,31 +43,16 @@ export default function App() {
                 method: 'wallet_switchEthereumChain',
                 params: [{chainId: '0x4'}],
             });
-        } catch (error) {
-            console.error("Error connecting wallet:", error)
-        }
-    }
-
-    const checkIfWalletIsConnected = async () => {
-
-        const {ethereum} = window;
-
-        if (!ethereum || !ethereum.request) {
-            return
-        }
-
-        try {
-            const accounts = await ethereum.request({method: "eth_accounts"});
-
-            if (accounts.length) {
-                setCurrentAccount(accounts[0]);
-            } else {
-                console.log("No Authorized accounts found");
+            return true
+        } catch (error: any) {
+            if (error.code === 4001) {
+                setErrorMessage("You must use the Rinkeby testnet to interact with this app")
+            } else if (error.code !== -32002) {
+                console.error("Error connecting wallet:", error)
+                setErrorMessage((error.message))
             }
-        } catch (error) {
-            console.error(error)
+            return false
         }
-
     }
 
     const connectToWallet = async () => {
@@ -71,92 +63,113 @@ export default function App() {
             return
         }
 
-        try {
-            const accounts = await ethereum.request({
-                method: "eth_requestAccounts",
-            });
-            console.log("Connected", accounts);
-            setCurrentAccount(accounts[0]);
+        if (await switchNetwork()) {
+            try {
+                const accounts = await ethereum.request({
+                    method: "eth_requestAccounts",
+                });
+                console.log("Connected", accounts);
+                setCurrentAccount(accounts[0]);
 
-        } catch (error) {
-            console.error("Error connecting wallet:", error)
+            } catch (error: any) {
+                if (error.code !== 4001)
+                    console.error("Error connecting wallet:", error)
+            }
         }
     }
 
     const getAllWaves = useCallback(async () => {
-        try {
-            const {ethereum} = window;
-            if (ethereum) {
-                const provider = new ethers.providers.Web3Provider(ethereum);
-                const signer = provider.getSigner();
-                const wavePortalContract = new ethers.Contract(contractAddress, contractABI, signer);
+        if (await switchNetwork()) {
+            try {
+                const {ethereum} = window;
+                if (ethereum) {
+                    const wavePortalContract = getContract(ethereum);
 
-                const waves: Wave[] = await wavePortalContract.getAllWaves();
+                    const waves: Wave[] = await wavePortalContract.getAllWaves();
 
-                let wavesCleaned: ParsedWave[] = [];
-                waves.forEach((wave) => {
-                    wavesCleaned.push({
-                        waver: wave.waver,
-                        timestamp: new Date(wave.timestamp.toNumber() * 1000),
-                        message: wave.message
+                    let wavesCleaned: ParsedWave[] = [];
+                    waves.forEach((wave) => {
+                        wavesCleaned.push({
+                            waver: wave.waver,
+                            timestamp: new Date(wave.timestamp.toNumber() * 1000),
+                            message: wave.message
+                        });
                     });
-                });
 
-                setAllWaves(wavesCleaned);
-            } else {
-                console.log("Ethereum object doesn't exist!")
+                    setAllWaves(wavesCleaned);
+                } else {
+                    console.log("Ethereum object doesn't exist!")
+                }
+            } catch (error) {
+                console.log(error);
             }
-        } catch (error) {
-            console.log(error);
         }
-    }, [contractABI])
+    }, [getContract])
 
     useEffect(() => {
-        let setupWallet = async () => {
-            await switchNetwork()
-            await checkIfWalletIsConnected()
+
+        const checkIfWalletIsConnected = async () => {
+
+            const {ethereum} = window;
+
+            if (!ethereum || !ethereum.request) {
+                return false
+            }
+
+            if (await switchNetwork()) {
+                try {
+                    const accounts = await ethereum.request({method: "eth_accounts"});
+
+                    if (accounts.length) {
+                        setCurrentAccount(accounts[0]);
+                        return true
+                    }
+                } catch (error: any) {
+                    console.error(error)
+                    setErrorMessage(error.message)
+                    return false
+                }
+            }
         }
-        setupWallet().then(() => {
+
+        checkIfWalletIsConnected().then(isConnected => {
+            if (isConnected) {
+                getAllWaves()
+            }
+        })
+
+    }, [getAllWaves, currentAccount])
+
+    const wave = async () => {
+        setErrorMessage("")
+        if (inputMessage.length < 3) {
+            setErrorMessage("You must type at least 3 characters")
+            return
+        }
+
+        if (await switchNetwork()) {
             try {
                 const {ethereum} = window
 
                 if (ethereum) {
-                    const provider = new ethers.providers.Web3Provider(ethereum)
-                    const signer = provider.getSigner()
-                    setWavePortalContract(new ethers.Contract(contractAddress, contractABI, signer))
+                    const wavePortalContract = getContract(ethereum);
+                    setIsWaitingForTxn(true)
+                    const waveTxn = await wavePortalContract.wave(inputMessage)
+                    console.log("Mining", waveTxn.hash)
+                    await waveTxn.wait()
+                    console.log("Mined", waveTxn.hash)
+                    await getAllWaves()
+                    setIsWaitingForTxn(false)
+                    setInputMessage("")
                 } else {
-                    console.log("Ethereum object doesn't exist")
+                    console.log("Ethereum object doesn't exist or contract not defined")
                 }
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error(error)
-            }
-        })
-    }, [contractABI])
-
-    useEffect(() => {
-        getAllWaves()
-    }, [wavePortalContract, getAllWaves])
-
-    const wave = async () => {
-        try {
-            const {ethereum} = window
-
-            if (ethereum && wavePortalContract) {
-                setIsWaitingForTxn(true)
-                const waveTxn = await wavePortalContract.wave(inputMessage)
-                console.log("Mining", waveTxn.hash)
-                await waveTxn.wait()
-                console.log("Mined", waveTxn.hash)
-                await getAllWaves()
+                setErrorMessage((error.message))
                 setIsWaitingForTxn(false)
-            } else {
-                console.log("Ethereum object doesn't exist or contract not defined")
             }
-
-        } catch (error) {
-            console.error(error)
-            setIsWaitingForTxn(false)
         }
     }
 
@@ -195,6 +208,8 @@ export default function App() {
                     <textarea className={"messageInput"}
                               onChange={e => setInputMessage(e.currentTarget.value)}
                               maxLength={maxMessageLength}/>}
+
+                {errorMessage && <div className={"errorMessage"}>{errorMessage}</div>}
 
                 {!isWaitingForTxn && currentAccount &&
                     <button className="waveButton" onClick={wave}>
