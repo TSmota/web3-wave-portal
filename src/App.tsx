@@ -16,7 +16,7 @@ interface ParsedWave extends Omit<Wave, 'timestamp'> {
 
 export default function App() {
 
-    const contractAddress = "0xa9765E97e2d2e2Dd1A77eB536F395A77c32829ac";
+    const contractAddress = "0x1c791764035D16339617810aC5bDa9A35b234727";
     const [contractABI] = useState(abi.abi);
     const [currentAccount, setCurrentAccount] = useState("");
     const [inputMessage, setInputMessage] = useState("");
@@ -132,13 +132,37 @@ export default function App() {
             }
         }
 
-        checkIfWalletIsConnected().then(isConnected => {
-            if (isConnected) {
-                getAllWaves()
-            }
-        })
+        checkIfWalletIsConnected()
+        getAllWaves()
 
     }, [getAllWaves, currentAccount])
+
+    useEffect(() => {
+        let wavePortalContract: ethers.Contract;
+
+        const onNewWave = (from: string, timestamp: BigNumber, message: string) => {
+            console.log("NewWave", from, timestamp, message);
+            setAllWaves(prevState => [
+                ...prevState,
+                {
+                    waver: from,
+                    timestamp: new Date(timestamp.toNumber() * 1000),
+                    message: message,
+                },
+            ]);
+        };
+
+        if (window.ethereum) {
+            wavePortalContract = getContract(window.ethereum)
+            wavePortalContract.on("NewWave", onNewWave);
+        }
+
+        return () => {
+            if (wavePortalContract) {
+                wavePortalContract.off("NewWave", onNewWave);
+            }
+        };
+    }, [getContract]);
 
     const wave = async () => {
         setErrorMessage("")
@@ -154,11 +178,10 @@ export default function App() {
                 if (ethereum) {
                     const wavePortalContract = getContract(ethereum);
                     setIsWaitingForTxn(true)
-                    const waveTxn = await wavePortalContract.wave(inputMessage)
+                    const waveTxn = await wavePortalContract.wave(inputMessage, {gasLimit: 300000})
                     console.log("Mining", waveTxn.hash)
                     await waveTxn.wait()
                     console.log("Mined", waveTxn.hash)
-                    await getAllWaves()
                     setIsWaitingForTxn(false)
                     setInputMessage("")
                 } else {
@@ -167,7 +190,7 @@ export default function App() {
 
             } catch (error: any) {
                 console.error(error)
-                setErrorMessage((error.message))
+                setErrorMessage("Transaction error, failed to wave 😢")
                 setIsWaitingForTxn(false)
             }
         }
