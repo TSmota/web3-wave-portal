@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import './App.css';
 import {BigNumber, ethers} from "ethers";
 import abi from "./utils/WavePortal.json"
@@ -16,7 +16,7 @@ interface ParsedWave extends Omit<Wave, 'timestamp'> {
 export default function App() {
 
     const contractAddress = "0xa9765E97e2d2e2Dd1A77eB536F395A77c32829ac";
-    const contractABI = abi.abi;
+    const [contractABI] = useState(abi.abi);
     const [currentAccount, setCurrentAccount] = useState("");
     const [inputMessage, setInputMessage] = useState("");
     const [allWaves, setAllWaves] = useState<ParsedWave[]>([]);
@@ -83,49 +83,37 @@ export default function App() {
         }
     }, [contractABI])
 
-    useEffect(() => {
-        const getAllWaves = async () => {
-            try {
-                const {ethereum} = window;
-                if (ethereum) {
-                    const provider = new ethers.providers.Web3Provider(ethereum);
-                    const signer = provider.getSigner();
-                    const wavePortalContract = new ethers.Contract(contractAddress, contractABI, signer);
+    const getAllWaves = useCallback(async () => {
+        try {
+            const {ethereum} = window;
+            if (ethereum) {
+                const provider = new ethers.providers.Web3Provider(ethereum);
+                const signer = provider.getSigner();
+                const wavePortalContract = new ethers.Contract(contractAddress, contractABI, signer);
 
-                    /*
-                     * Call the getAllWaves method from your Smart Contract
-                     */
-                    const waves: Wave[] = await wavePortalContract.getAllWaves();
+                const waves: Wave[] = await wavePortalContract.getAllWaves();
 
-
-                    /*
-                     * We only need address, timestamp, and message in our UI so let's
-                     * pick those out
-                     */
-                    let wavesCleaned: ParsedWave[] = [];
-                    waves.forEach((wave) => {
-                        console.log(wave);
-                        wavesCleaned.push({
-                            waver: wave.waver,
-                            timestamp: new Date(wave.timestamp.toNumber() * 1000),
-                            message: wave.message
-                        });
+                let wavesCleaned: ParsedWave[] = [];
+                waves.forEach((wave) => {
+                    wavesCleaned.push({
+                        waver: wave.waver,
+                        timestamp: new Date(wave.timestamp.toNumber() * 1000),
+                        message: wave.message
                     });
+                });
 
-                    /*
-                     * Store our data in React State
-                     */
-                    setAllWaves(wavesCleaned);
-                } else {
-                    console.log("Ethereum object doesn't exist!")
-                }
-            } catch (error) {
-                console.log(error);
+                setAllWaves(wavesCleaned);
+            } else {
+                console.log("Ethereum object doesn't exist!")
             }
+        } catch (error) {
+            console.log(error);
         }
+    }, [contractABI])
 
+    useEffect(() => {
         getAllWaves()
-    }, [wavePortalContract, contractABI])
+    }, [wavePortalContract, getAllWaves])
 
     const wave = async () => {
         try {
@@ -137,6 +125,7 @@ export default function App() {
                 console.log("Mining", waveTxn.hash)
                 await waveTxn.wait()
                 console.log("Mined", waveTxn.hash)
+                await getAllWaves()
                 setIsWaitingForTxn(false)
             } else {
                 console.log("Ethereum object doesn't exist or contract not defined")
@@ -193,7 +182,7 @@ export default function App() {
                     Connect Wallet
                 </button>}
 
-                {allWaves.reverse().map((wave, index) => {
+                {[...allWaves].reverse().map((wave, index) => {
                     return (
                         <div key={index} className={"wave"}>
                             <div className={"waveHeader"}>
