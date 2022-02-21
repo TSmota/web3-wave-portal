@@ -25,10 +25,15 @@ export default function App() {
     const [isWaitingForTxn, setIsWaitingForTxn] = useState(false);
     const maxMessageLength = 280;
 
-    const getContract = useCallback((ethereum: Ethereumish) => {
-        const provider = new ethers.providers.Web3Provider(ethereum)
-        const signer = provider.getSigner()
-        return new ethers.Contract(contractAddress, contractABI, signer)
+    const getContract = useCallback((ethereum: Ethereumish, needSigner = true) => {
+        if (needSigner) {
+            const provider = new ethers.providers.Web3Provider(ethereum)
+            const signer = provider.getSigner()
+            return new ethers.Contract(contractAddress, contractABI, signer)
+        } else {
+            const provider = new ethers.providers.JsonRpcBatchProvider('https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161')
+            return new ethers.Contract(contractAddress, contractABI, provider)
+        }
     }, [contractABI])
 
     const switchNetwork = async () => {
@@ -83,7 +88,7 @@ export default function App() {
             try {
                 const {ethereum} = window;
                 if (ethereum) {
-                    const wavePortalContract = getContract(ethereum);
+                    const wavePortalContract = getContract(ethereum, false);
 
                     const waves: Wave[] = await wavePortalContract.getAllWaves();
 
