@@ -1,8 +1,8 @@
-import React, {useCallback, useEffect, useState} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import './App.css';
-import {BigNumber, ethers} from "ethers";
+import { BigNumber, ethers } from "ethers";
 import abi from "./utils/WavePortal.json"
-import {Ethereumish} from "./react-app-env";
+import { Ethereumish } from "./react-app-env";
 
 interface Wave {
     waver: string;
@@ -25,19 +25,18 @@ export default function App() {
     const [isWaitingForTxn, setIsWaitingForTxn] = useState(false);
     const maxMessageLength = 280;
 
-    const getContract = useCallback((ethereum: Ethereumish, needSigner = true) => {
-        if (needSigner) {
-            const provider = new ethers.providers.Web3Provider(ethereum)
-            const signer = provider.getSigner()
-            return new ethers.Contract(contractAddress, contractABI, signer)
-        } else {
-            const provider = new ethers.providers.JsonRpcBatchProvider('https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161')
-            return new ethers.Contract(contractAddress, contractABI, provider)
-        }
+    const getContract = useCallback((ethereum?: Ethereumish) => {
+        const provider = ethereum
+            ? new ethers.providers.Web3Provider(ethereum)
+            : new ethers.providers.JsonRpcBatchProvider('https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161')
+
+        const signer = provider.getSigner()
+
+        return new ethers.Contract(contractAddress, contractABI, ethereum ? signer : provider)
     }, [contractABI])
 
     const switchNetwork = async () => {
-        const {ethereum} = window;
+        const { ethereum } = window;
 
         if (!ethereum || !ethereum.request) {
             return false
@@ -46,7 +45,7 @@ export default function App() {
         try {
             await ethereum.request({
                 method: 'wallet_switchEthereumChain',
-                params: [{chainId: '0x4'}],
+                params: [{ chainId: '0x4' }],
             });
             return true
         } catch (error: any) {
@@ -62,7 +61,7 @@ export default function App() {
 
     const connectToWallet = async () => {
 
-        const {ethereum} = window;
+        const { ethereum } = window;
 
         if (!ethereum || !ethereum.request) {
             return
@@ -84,38 +83,34 @@ export default function App() {
     }
 
     const getAllWaves = useCallback(async () => {
-        if (await switchNetwork()) {
-            try {
-                const {ethereum} = window;
-                if (ethereum) {
-                    const wavePortalContract = getContract(ethereum, false);
 
-                    const waves: Wave[] = await wavePortalContract.getAllWaves();
+        try {
+            const wavePortalContract = getContract();
 
-                    let wavesCleaned: ParsedWave[] = [];
-                    waves.forEach((wave) => {
-                        wavesCleaned.push({
-                            waver: wave.waver,
-                            timestamp: new Date(wave.timestamp.toNumber() * 1000),
-                            message: wave.message
-                        });
-                    });
+            const waves: Wave[] = await wavePortalContract.getAllWaves();
 
-                    setAllWaves(wavesCleaned);
-                } else {
-                    console.log("Ethereum object doesn't exist!")
-                }
-            } catch (error) {
-                console.log(error);
-            }
+            let wavesCleaned: ParsedWave[] = [];
+            waves.forEach((wave) => {
+                wavesCleaned.push({
+                    waver: wave.waver,
+                    timestamp: new Date(wave.timestamp.toNumber() * 1000),
+                    message: wave.message
+                });
+            });
+
+            setAllWaves(wavesCleaned);
+
+        } catch (error) {
+            console.log(error);
         }
+
     }, [getContract])
 
     useEffect(() => {
 
         const checkIfWalletIsConnected = async () => {
 
-            const {ethereum} = window;
+            const { ethereum } = window;
 
             if (!ethereum || !ethereum.request) {
                 return false
@@ -123,7 +118,7 @@ export default function App() {
 
             if (await switchNetwork()) {
                 try {
-                    const accounts = await ethereum.request({method: "eth_accounts"});
+                    const accounts = await ethereum.request({ method: "eth_accounts" });
 
                     if (accounts.length) {
                         setCurrentAccount(accounts[0]);
@@ -178,12 +173,12 @@ export default function App() {
 
         if (await switchNetwork()) {
             try {
-                const {ethereum} = window
+                const { ethereum } = window
 
                 if (ethereum) {
                     const wavePortalContract = getContract(ethereum);
                     setIsWaitingForTxn(true)
-                    const waveTxn = await wavePortalContract.wave(inputMessage, {gasLimit: 300000})
+                    const waveTxn = await wavePortalContract.wave(inputMessage, { gasLimit: 300000 })
                     console.log("Mining", waveTxn.hash)
                     await waveTxn.wait()
                     console.log("Mined", waveTxn.hash)
@@ -213,40 +208,49 @@ export default function App() {
                     I am Thiago Mota and this is my first web3 project.
                 </div>
 
-                {!currentAccount && <div className="paragraph">
-                    Connect your Rinkeby Ethereum wallet to send me a wave!
-                </div>}
+                {!!window.ethereum
+                    ? (
+                        <>
+                            {!currentAccount && <div className="paragraph">
+                                Connect your Rinkeby Ethereum wallet to send me a wave!
+                            </div>}
 
-                {isWaitingForTxn && <div className="paragraph">
-                    <p>Sending a wave...</p>
-                    <div>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             width="200px"
-                             height="200px" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid">
-                            <path d="M27 50A23 23 0 0 0 73 50A23 24.3 0 0 1 27 50" fill="#cbdde8" stroke="none">
-                                <animateTransform attributeName="transform" type="rotate" dur="1s"
-                                                  repeatCount="indefinite" keyTimes="0;1"
-                                                  values="0 50 50.65;360 50 50.65"/>
-                            </path>
-                        </svg>
-                    </div>
-                </div>}
+                            {isWaitingForTxn && <div className="paragraph">
+                                <p>Sending a wave...</p>
+                                <div>
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                        width="200px"
+                                        height="200px" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid">
+                                        <path d="M27 50A23 23 0 0 0 73 50A23 24.3 0 0 1 27 50" fill="#cbdde8" stroke="none">
+                                            <animateTransform attributeName="transform" type="rotate" dur="1s"
+                                                repeatCount="indefinite" keyTimes="0;1"
+                                                values="0 50 50.65;360 50 50.65" />
+                                        </path>
+                                    </svg>
+                                </div>
+                            </div>}
 
-                {!isWaitingForTxn && currentAccount &&
-                    <textarea className={"messageInput"}
-                              onChange={e => setInputMessage(e.currentTarget.value)}
-                              maxLength={maxMessageLength}/>}
+                            {!isWaitingForTxn && currentAccount &&
+                                <textarea className={"messageInput"}
+                                    onChange={e => setInputMessage(e.currentTarget.value)}
+                                    maxLength={maxMessageLength} />}
 
-                {errorMessage && <div className={"errorMessage"}>{errorMessage}</div>}
+                            {errorMessage && <div className={"errorMessage"}>{errorMessage}</div>}
 
-                {!isWaitingForTxn && currentAccount &&
-                    <button className="waveButton" onClick={wave}>
-                        Wave at Me
-                    </button>}
+                            {!isWaitingForTxn && currentAccount &&
+                                <button className="waveButton" onClick={wave}>
+                                    Wave at Me
+                                </button>}
 
-                {!currentAccount && <button className="waveButton" onClick={connectToWallet}>
-                    Connect Wallet
-                </button>}
+                            {!currentAccount && <button className="waveButton" onClick={connectToWallet}>
+                                Connect Wallet
+                            </button>}
+                        </>
+                    )
+                    : <div className="paragraph">
+                        You need to have metamask to interact with this website, get it <a href="https://metamask.io/" target={"_blank"} rel="noreferrer">here</a>.
+                    </div>}
+
 
                 {[...allWaves].reverse().map((wave, index) => {
                     return (
